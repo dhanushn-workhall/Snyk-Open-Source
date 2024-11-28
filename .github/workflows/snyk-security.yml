@@ -1,55 +1,33 @@
-version: "1.0.0"
+name: Snyk Security Scan
 
-# General settings for Snyk scans
-settings:
-  failOn: "all"               # Fail the build on any vulnerability (critical, high, medium, or low)
-  severityThreshold: "low"    # Test and report vulnerabilities of all severity levels
-  includeDevDependencies: true # Include dev dependencies in scans to ensure full coverage
-  organization: "your-org-name"  # Optional: Snyk organization name for better management
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
-# Define the project structure and files to scan
-projects:
-  - name: "Main Package Dependencies"
-    path: "./package.json"
-    type: "npm"              # Scans the dependencies listed in package.json
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
 
-  - name: "Directory Traversal Vulnerability Test"
-    path: "./directory-traversal-example.js"
-    type: "npm"              # Ensures scanning of related modules and scripts
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-  - name: "Prototype Pollution Vulnerability Test"
-    path: "./prototype-pollution-example.js"
-    type: "npm"              # Same for prototype-pollution-example.js
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-# Exclusions (minimal exclusions for thorough testing)
-exclude:
-  - "node_modules"           # Exclude the node_modules folder since dependencies are already covered
-  - "*.md"                   # Ignore Markdown files like README.md (optional, no vulnerabilities here)
+      - name: Install Snyk CLI
+        run: npm install -g snyk
 
-# Notifications and reporting
-notifications:
-  email: true                # Enable email notifications for flagged vulnerabilities
-  slack:
-    enabled: true            # Enable Slack notifications
-    webhook_url: "https://hooks.slack.com/services/your/webhook/url"
+      - name: Run Snyk Test
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}  # Fetch the token from GitHub Secrets
+        run: snyk test --file=package.json
 
-# Rules for testing files and dependencies
-test:
-  default:
-    - snyk test --file=package.json --json --severity-threshold=low
-    - snyk test ./directory-traversal-example.js --severity-threshold=low
-    - snyk test ./prototype-pollution-example.js --severity-threshold=low
-
-# Monitor configuration to track ongoing issues
-monitor:
-  default:
-    - snyk monitor --file=package.json  # Monitor and upload `package.json` results to Snyk for tracking
-    - snyk monitor ./directory-traversal-example.js
-    - snyk monitor ./prototype-pollution-example.js
-
-# Custom ignore rules (set to none for full testing coverage)
-ignore: []
-
-# Remediation configuration
-remediation:
-  suggestFixes: true  # Provide upgrade/patch suggestions for vulnerabilities found
+      - name: Monitor Dependencies
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk monitor --file=package.json
